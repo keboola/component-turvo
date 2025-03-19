@@ -23,6 +23,7 @@ class FileManager:
 
     def get_file_metadata(self, table_name: str) -> FileMetadata:
         """Generates file metadata containing name and full path."""
+        table_name = f"{table_name}"
         file_name = f"{table_name}.csv"
         file_path = os.path.join(self.output_dir, file_name)
         return FileMetadata(table_name, file_name, file_path)
