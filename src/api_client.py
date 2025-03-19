@@ -1,12 +1,12 @@
 import asyncio
 import logging
 import time
-from typing import List, Dict, AsyncGenerator
+from typing import Dict, AsyncGenerator, Set
 
 import httpx
 
 from configuration import Configuration
-from utils import generate_auth_request, flatten_shipment
+from utils import generate_auth_request, flatten_shipment_list
 
 
 class TurvoApiClient:
@@ -16,10 +16,10 @@ class TurvoApiClient:
 
     def __init__(self, config: Configuration):
         self.config = config
+        self.shipment_ids: Set[int] = set()
         self.api_base_url = self.config.authentication.api_base_url
-        self.max_retries =self.config.sync_options.max_retries
+        self.max_retries = self.config.sync_options.max_retries
         self.auth_lock = asyncio.Lock()
-        self.semaphore = asyncio.Semaphore(self.config.sync_options.max_concurrent_requests)
         self.auth_key = None
         self.expires_at = 0
         self.retry_delay = 120
@@ -35,11 +35,11 @@ class TurvoApiClient:
         headers, body, query_params = generate_auth_request(self.config.authentication)
         auth_url = f"{self.api_base_url}/oauth/token?{query_params}"
 
-        if self.config.debug:
-            logging.debug(f"Auth URL: %s", auth_url)
-            logging.debug(f"Request Body: %s", body)
-            logging.debug(f"Request Headers: %s", headers)
-            logging.debug(f"Query_params: %s", query_params)
+        # if self.config.debug:
+        # logging.debug(f"Auth URL: %s", auth_url)
+        # logging.debug(f"Request Body: %s", body)
+        # logging.debug(f"Request Headers: %s", headers)
+        # logging.debug(f"Query_params: %s", query_params)
 
         async with httpx.AsyncClient(verify=True) as client:
             retries = 0
@@ -61,15 +61,14 @@ class TurvoApiClient:
 
             raise Exception("Maximum number of retries reached. Unable to authenticate.")
 
-
-    async def fetch_shipments(self, max_pages: int = 3) -> AsyncGenerator[Dict, None]:
+    async def fetch_shipments(self) -> AsyncGenerator[Dict, None]:
         """
-        Generator that yields shipments page by page.
-        Stops when the API returns an error (5001) or if max_pages is reached.
+        Generator that fetches shipments using `updated[gte]` while collecting unique shipment IDs.
         """
         start = 0
         page_size = 24
-        pages_fetched = 0
+        start_datetime = self.config.sync_options.start_datetime
+        self.shipment_ids.clear()
 
         headers = {
             "Authorization": f"Bearer {await self.authenticate()}",
@@ -77,10 +76,12 @@ class TurvoApiClient:
             "x-api-key": self.config.authentication.xApiKey,
         }
 
-        async with httpx.AsyncClient(verify=False) as client:
+        logging.info(f"Fetching shipments updated since {start_datetime}...")
+
+        async with httpx.AsyncClient(verify=True) as client:
             while True:
-                url = f"{self.api_base_url}/shipments/list?start={start}"
-                logging.info(f"Fetching shipments (Page {pages_fetched+1}): {url}")
+                url = f"{self.api_base_url}/shipments/list?updated[gte]={start_datetime}&start={start}"
+                logging.info(f"Fetching shipments (start={start}): {url}")
 
                 try:
                     response = await client.get(url, headers=headers)
@@ -92,25 +93,57 @@ class TurvoApiClient:
                         logging.error(f"Unexpected API response: {data}")
                         break
 
-                    for shipment in data["details"].get("shipments", []):
-                        for row in flatten_shipment(shipment):
-                            yield row
-
-                    pages_fetched += 1
-
-                    if max_pages and pages_fetched >= max_pages:
-                        logging.info(f"Reached max page limit: {max_pages}")
+                    pagination = data["details"].get("pagination", {})
+                    if not pagination.get("moreAvailable", False):
+                        logging.info("No more shipments available, stopping pagination.")
                         break
+
+                    shipments = data["details"].get("shipments", [])
+                    for shipment in shipments:
+                        shipment_id = shipment.get("id")
+                        if shipment_id:
+                            self.shipment_ids.add(shipment_id)
+
+                        for flattened_shipment in flatten_shipment_list(shipment):
+                            yield flattened_shipment
 
                     start += page_size
 
                 except httpx.HTTPStatusError as e:
-                    if e.response.status_code == 500:
+                    if e.response.status_code == 400:
                         error_data = e.response.json()
-                        if error_data.get("details", {}).get("errorCode") == "5001":
-                            logging.info("Reached the last available page (5001 error). Stopping pagination.")
+                        if error_data.get("details", {}).get("errorCode") == "400":
+                            logging.error(f"Date range is beyond the allowed limit: {start_datetime}")
                             break
                     logging.error(f"Request failed: {e}")
                     break
+
+                await asyncio.sleep(self.request_delay)
+
+        logging.info(f"Collected {len(self.shipment_ids)} unique shipment IDs.")
+
+    async def fetch_shipment_details(self) -> AsyncGenerator[Dict, None]:
+        """
+        Generator that fetches detailed shipment data for each shipment ID.
+        """
+        headers = {
+            "Authorization": f"Bearer {await self.authenticate()}",
+            "Content-Type": "application/json",
+            "x-api-key": self.config.authentication.xApiKey,
+        }
+
+        async with httpx.AsyncClient(verify=True) as client:
+            for shipment_id in self.shipment_ids:
+                url = f"{self.api_base_url}/shipments/{shipment_id}"
+                logging.info(f"Fetching shipment details for {shipment_id}")
+
+                try:
+                    response = await client.get(url, headers=headers)
+                    response.raise_for_status()
+                    data = response.json()
+                    yield data
+
+                except httpx.HTTPStatusError as e:
+                    logging.error(f"Failed to fetch shipment {shipment_id}: {e}")
 
                 await asyncio.sleep(self.request_delay)

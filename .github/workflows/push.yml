@@ -3,7 +3,7 @@ on: [ push ]
 concurrency: ci-${{ github.ref }} # to avoid tag collisions in the ECR
 env:
   # repository variables:
-  KBC_DEVELOPERPORTAL_APP: "keboola.ex-service-name" # replace with your component id
+  KBC_DEVELOPERPORTAL_APP: "keboola.ex-turvo" # replace with your component id
   KBC_DEVELOPERPORTAL_VENDOR: "keboola" # replace with your vendor
   DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
   KBC_DEVELOPERPORTAL_USERNAME: ${{ vars.KBC_DEVELOPERPORTAL_USERNAME }}
@@ -65,8 +65,7 @@ jobs:
       - name: Deploy-Ready check
         id: deploy_ready
         run: |
-          if [[ "${{ steps.default_branch.outputs.is_default_branch }}" == "true" \
-            && "${{ github.ref }}" == refs/tags/* \
+          if [[ "${{ github.ref }}" == refs/tags/* \
             && "${{ steps.tag.outputs.is_semantic_tag }}" == "true" ]]; then
               echo "is_deploy_ready=true" | tee -a $GITHUB_OUTPUT
           else

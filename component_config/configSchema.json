@@ -1,19 +1,92 @@
 {
-  "type": "object",
-  "title": "extractor configuration",
-  "required": [
-    "print_hello"
-  ],
-  "properties": {
-    "print_hello": {
-      "type": "boolean",
-      "title": "Print Hello",
-      "propertyOrder": 1
-    },
-    "debug": {
-      "type": "boolean",
-      "title": "Debug",
-      "propertyOrder": 2
+    "type": "object",
+    "title": "Turvo Component Configuration",
+    "required": ["authentication", "sync_options", "debug"],
+    "properties": {
+        "authentication": {
+            "type": "object",
+            "title": "Authentication Settings",
+            "propertyOrder": 1,
+            "required": ["username", "#password", "clientId", "#clientSecret", "#xApiKey", "environment"],
+            "properties": {
+                "username": {
+                    "type": "string",
+                    "title": "Username",
+                    "default": "",
+                    "propertyOrder": 1
+                },
+                "#password": {
+                    "type": "string",
+                    "title": "Password",
+                    "format": "password",
+                    "propertyOrder": 2
+                },
+                "clientId": {
+                    "type": "string",
+                    "title": "Client ID",
+                    "default": "publicapi",
+                    "propertyOrder": 3
+                },
+                "#clientSecret": {
+                    "type": "string",
+                    "title": "Client Secret",
+                    "format": "password",
+                    "propertyOrder": 4
+                },
+                "#xApiKey": {
+                    "type": "string",
+                    "title": "API Key",
+                    "format": "password",
+                    "propertyOrder": 5
+                },
+                "environment": {
+                    "type": "string",
+                    "title": "API Environment",
+                    "enum": ["dev", "prod"],
+                    "default": "prod",
+                    "propertyOrder": 6,
+                    "description": "Choose 'dev' for testing or 'prod' for production."
+                }
+            }
+        },
+        "sync_options": {
+            "type": "object",
+            "title": "Synchronization Options",
+            "propertyOrder": 2,
+            "required": ["endpoint", "sync_time_value", "sync_time_unit"],
+            "properties": {
+                "endpoint": {
+                    "type": "string",
+                    "title": "Endpoint",
+                    "enum": ["shipments"],
+                    "default": "shipments",
+                    "propertyOrder": 1,
+                    "description": "Endpoint for data extraction. Currently, only 'shipments' is supported."
+                },
+                "sync_time_value": {
+                    "type": "integer",
+                    "title": "Sync Time Value",
+                    "minimum": 1,
+                    "maximum": 1000,
+                    "default": 1,
+                    "propertyOrder": 2,
+                    "description": "Time value for downloading the data (e.g., 1 hour, 2 days)."
+                },
+                "sync_time_unit": {
+                    "type": "string",
+                    "title": "Sync Time Unit",
+                    "enum": ["hour", "day", "week", "month", "year"],
+                    "default": "hour",
+                    "propertyOrder": 3,
+                    "description": "Time unit for data extraction."
+                }
+            }
+        },
+        "debug": {
+            "type": "boolean",
+            "title": "Enable Debug Mode",
+            "default": false,
+            "propertyOrder": 3
+        }
     }
-  }
 }

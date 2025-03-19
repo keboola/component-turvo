@@ -1,25 +1,37 @@
 import logging
-from datetime import date
+from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Optional, List
+from typing import Optional
 
+from dateutil.relativedelta import relativedelta
 from pydantic import BaseModel, Field, ValidationError, field_validator
 from keboola.component.exceptions import UserException
 
-from src.state_manager import StateManager
+from state_manager import StateManager
 
 
 class EnvironmentEnum(str, Enum):
     dev = "dev"
     prod = "prod"
 
+
 ENVIRONMENT_URLS = {
     EnvironmentEnum.dev: "https://my-sandbox-publicapi.turvo.com/v1",
     EnvironmentEnum.prod: "https://publicapi.turvo.com/v1",
 }
 
+
 class EndpointEnum(str, Enum):
     shipments = "shipments"
+
+
+class TimeUnit(Enum):
+    HOUR = "hour"
+    DAY = "day"
+    WEEK = "week"
+    MONTH = "month"
+    YEAR = "year"
+
 
 class Authentication(BaseModel):
     username: str
@@ -45,28 +57,23 @@ class Authentication(BaseModel):
 
 
 class SyncOptions(BaseModel):
-    endpoints: list[EndpointEnum] = Field(
-        default=[],
-        description="Endpoints for the data extraction"
+    endpoint: EndpointEnum = Field(
+        default=EndpointEnum.shipments,
+        description="Endpoint for the data extraction"
     )
-    date_from: str = Field(
-        default="2020-01-01",
-        description="Date from which to fetch data, default '2020-01-01'"
-    )
-    date_to: Optional[str] = Field(
-        default=None,
-        description="Date to which to fetch data."
-    )
-    reload_full_data: bool = Field(
-        default=False,
-        description="When enabled, retrieves the complete dataset from 'date_from', bypassing incremental loading."
-    )
-    max_concurrent_requests: int = Field(
+
+    sync_time_value: int = Field(
         default=1,
         ge=1,
-        le=2,
-        description="Maximum amount of concurrent requests to allow fetching data."
+        le=1000,
+        description="Time value for downloading the data"
     )
+
+    sync_time_unit: TimeUnit = Field(
+        default=TimeUnit.HOUR,
+        description="Time unit for downloading the data"
+    )
+
     max_retries: int = Field(
         default=5,
         ge=3,
@@ -74,16 +81,45 @@ class SyncOptions(BaseModel):
         description="Maximum amount of retries to allow fetching data."
     )
 
-    @field_validator("endpoints")
-    def must_not_be_empty(cls, values: List[EndpointEnum], info) -> List[EndpointEnum]:
-        if len(values) == 0:
-            raise ValueError(f"Field '{info.field_name}' cannot be empty")
-        return values
+    start_datetime: Optional[str] = Field(default=None)
+    end_datetime: Optional[str] = Field(default=None)
 
-    @property
-    def resolved_date_to(self) -> str:
-        """Ensures date_to is always a string."""
-        return self.date_to if self.date_to else str(date.today())
+    @field_validator("endpoint")
+    def validate_endpoint(cls, value: EndpointEnum) -> EndpointEnum:
+        """Ensures that the provided endpoint is in the defined EndpointEnum."""
+        if value not in EndpointEnum:
+            raise ValueError(
+                f"Invalid endpoint specified: {value}. Allowed values: {list(EndpointEnum)}"
+            )
+        return value
+
+    def calculate_start_date(self, now: datetime) -> str:
+        """Calculate the start date based on the time value and unit."""
+        unit_map = {
+            TimeUnit.HOUR: timedelta(hours=self.sync_time_value),
+            TimeUnit.DAY: timedelta(days=self.sync_time_value),
+            TimeUnit.WEEK: timedelta(weeks=self.sync_time_value),
+            TimeUnit.MONTH: relativedelta(months=self.sync_time_value),
+            TimeUnit.YEAR: relativedelta(years=self.sync_time_value),
+        }
+        start_date = now - unit_map[self.sync_time_unit]
+        return start_date.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+    def initialize_sync_window(self, state_manager: StateManager):
+        """
+        Initializes the sync window by setting `start_datetime` and `end_datetime`.
+        Uses `state_manager` to retrieve the last known sync or generate a new one.
+        """
+        now = datetime.now(timezone.utc)
+        self.end_datetime = now.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+        self.start_datetime = state_manager.get_last_sync_date(
+            sync_time_value=self.sync_time_value,
+            sync_time_unit=self.sync_time_unit.value,
+            default_start_date=self.calculate_start_date(now),
+        )
+
+        logging.info(f"Fetching data from {self.start_datetime} to {self.end_datetime}")
 
 
 class Configuration(BaseModel):
@@ -94,20 +130,11 @@ class Configuration(BaseModel):
     def __init__(self, state_manager: StateManager, **data):
         try:
             super().__init__(**data)
-
-            last_processed_date = state_manager.get_last_processed_date()
-            if last_processed_date and not self.sync_options.reload_full_data:
-                self.sync_options.date_from = last_processed_date
-
-            if not self.sync_options.date_to:
-                self.sync_options.date_to = self.sync_options.resolved_date_to
-
-            logging.info(f"Using date_from: {self.sync_options.date_from}")
-            logging.info(f"Using date_to: {self.sync_options.date_to}")
+            self.sync_options.initialize_sync_window(state_manager)
+            logging.info(f"Using download date: {self.sync_options.start_datetime}")
         except ValidationError as e:
             error_messages = [f"{err['loc'][0]}: {err['msg']}" for err in e.errors()]
             raise UserException(f"Validation Error: {', '.join(error_messages)}")
 
         if self.debug:
             logging.debug("Component will run in Debug mode")
-
