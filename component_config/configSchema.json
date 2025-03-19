@@ -24,7 +24,6 @@
                 "clientId": {
                     "type": "string",
                     "title": "Client ID",
-                    "default": "publicapi",
                     "propertyOrder": 3
                 },
                 "#clientSecret": {
