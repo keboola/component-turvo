@@ -36,11 +36,13 @@ class ManifestManager:
         file_metadata = self.file_manager.get_file_metadata(file_name)
         logging.info(f"Creating manifest for {file_name}...")
 
+        table_name = file_name.replace(".csv", "")
+
         output_table = self.component.create_out_table_definition(
-            file_metadata.table_name,
+            table_name,
             incremental=True,
             primary_key=self.get_primary_keys(file_name),
-            destination=f"out.c-turvo.{file_metadata.table_name}",
+            destination=f"out.c-turvo.{table_name}",
         )
 
         self.component.write_manifest(output_table)
