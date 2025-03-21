@@ -9,8 +9,25 @@ from configuration import Configuration
 class ManifestManager:
     """Handles the generation of Keboola manifest files."""
     PRIMARY_KEYS = {
-        "shipments.csv": ["shipment_id", "customer_order_id", "carrier_order_id"],
-        "shipment_details.csv": ["shipment_id"],
+        "shipment_filters.csv": ["id"],
+        "shipment_details.csv": ["id"],
+        "shipment_lookups.csv": ["code"],
+
+        "customer_filters.csv": ["id"],
+        "customer_details.csv": ["id"],
+        "customer_lookups.csv": ["code"],
+
+        "location_filters.csv": ["id"],
+        "location_details.csv": ["id"],
+        "location_lookups.csv": ["code"],
+
+        "carrier_filters.csv": ["id"],
+        "carrier_details.csv": ["id"],
+        "carrier_lookups.csv": ["code"],
+
+        "order_filters.csv": ["id"],
+        "order_details.csv": ["id"],
+        "order_lookups.csv": ["code"],
     }
 
     def __init__(self, component: ComponentBase, config: Configuration, file_manager: FileManager):
@@ -49,10 +66,10 @@ class ManifestManager:
         logging.info(f"Manifest successfully created for {file_metadata.file_name}")
 
     def create_manifests(self):
-        """Creates manifests only for files that exist in the output directory."""
-        existing_files = set(os.listdir(self.file_manager.output_dir))
-        logging.info(f"Existing files in output directory: {existing_files}")
-
-        for file_name in existing_files:
-            if file_name in self.PRIMARY_KEYS:
+        """
+        Iterates over all CSV files in the output directory and creates manifests
+        only for those that exist, using the existing create_manifest() method.
+        """
+        for file_name in os.listdir(self.file_manager.output_dir):
+            if file_name.endswith(".csv"):
                 self.create_manifest(file_name)

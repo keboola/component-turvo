@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Optional
+from typing import Optional, List
 
 from dateutil.relativedelta import relativedelta
 from pydantic import BaseModel, Field, ValidationError, field_validator
@@ -23,6 +23,10 @@ ENVIRONMENT_URLS = {
 
 class EndpointEnum(str, Enum):
     shipments = "shipments"
+    customers = "customers"
+    locations = "locations"
+    carriers = "carriers"
+    orders = "orders"
 
 
 class TimeUnit(Enum):
@@ -57,9 +61,9 @@ class Authentication(BaseModel):
 
 
 class SyncOptions(BaseModel):
-    endpoint: EndpointEnum = Field(
-        default=EndpointEnum.shipments,
-        description="Endpoint for the data extraction"
+    endpoints: List[EndpointEnum] = Field(
+        default=[EndpointEnum.shipments],
+        description="List of endpoints for data extraction"
     )
 
     sync_time_value: int = Field(
@@ -84,14 +88,27 @@ class SyncOptions(BaseModel):
     start_datetime: Optional[str] = Field(default=None)
     end_datetime: Optional[str] = Field(default=None)
 
-    @field_validator("endpoint")
-    def validate_endpoint(cls, value: EndpointEnum) -> EndpointEnum:
-        """Ensures that the provided endpoint is in the defined EndpointEnum."""
-        if value not in EndpointEnum:
+    @field_validator("endpoints")
+    def must_not_be_empty(cls, values: List[EndpointEnum]) -> List[EndpointEnum]:
+        """Ensures that at least one endpoint is selected."""
+        if not values:
+            raise ValueError("At least one endpoint must be specified.")
+        return values
+
+    @field_validator("endpoints")
+    def validate_endpoints(cls, values: list[str]) -> list[str]:
+        """
+        Ensures that all provided endpoints exist in EndpointEnum.
+        """
+        valid_endpoints = {e.value for e in EndpointEnum}
+        invalid_endpoints = [e for e in values if e not in valid_endpoints]
+
+        if invalid_endpoints:
             raise ValueError(
-                f"Invalid endpoint specified: {value}. Allowed values: {list(EndpointEnum)}"
+                f"Invalid endpoints specified: {invalid_endpoints}. "
+                f"Allowed values: {list(valid_endpoints)}"
             )
-        return value
+        return values
 
     def calculate_start_date(self, now: datetime) -> str:
         """Calculate the start date based on the time value and unit."""

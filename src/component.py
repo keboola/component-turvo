@@ -1,5 +1,5 @@
 """
-Component TurvoAPI Extractor
+TurvoAPI Extractor Component
 """
 import asyncio
 import os
@@ -13,6 +13,10 @@ from api_client import TurvoApiClient
 from file_manager import FileManager
 from manifest_manager import ManifestManager
 from state_manager import StateManager
+from lookups import (
+    shipment_lookup_data,
+    location_lookup_data,
+)
 
 
 class Component(ComponentBase):
@@ -39,38 +43,68 @@ class Component(ComponentBase):
             """
             Downloads data based on selected endpoint.
             """
-            file_created = False
-
-            if config.sync_options.endpoint == EndpointEnum.shipments:
+            if EndpointEnum.shipments in config.sync_options.endpoints:
                 logging.info("Downloading shipments data...")
-                shipment_list_metadata = file_manager.get_file_metadata("shipments")
-                shipment_list_stream = api_client.fetch_shipments()
-                file_created = await file_manager.save_shipment_list_to_csv(
+
+                shipment_list_metadata = file_manager.get_file_metadata("shipment_filters")
+                shipment_list_stream = api_client.fetch_filtered_list_data(
+                    resource="shipments",
+                    element_key="shipments",
+                    unique_id_key="id"
+                )
+                await file_manager.save_shipment_list_to_csv(
                     shipment_list_stream, shipment_list_metadata
                 )
 
-                if api_client.shipment_ids:
+                if api_client.list_unique_ids:
                     shipment_details_metadata = file_manager.get_file_metadata("shipment_details")
-                    shipment_details_stream = api_client.fetch_shipment_details()
+                    shipment_details_stream = api_client.fetch_object_detail_data("shipments")
                     await file_manager.save_shipment_details_to_csv(
                         shipment_details_stream, shipment_details_metadata
                     )
 
-            else:
-                logging.info("No supported endpoint selected. Skipping download...")
+                shipment_lookup_metadata = file_manager.get_file_metadata("shipment_lookups")
+                await file_manager.save_lookup_data_to_csv(
+                    shipment_lookup_data,
+                    shipment_lookup_metadata
+                )
 
-            return file_created
+            if EndpointEnum.locations in config.sync_options.endpoints:
+                logging.info("Downloading locations data...")
 
-        file_created = asyncio.run(process())
+                location_list_metadata = file_manager.get_file_metadata("location_filters")
+                location_list_stream = api_client.fetch_filtered_list_data(
+                    resource="locations",
+                    element_key="locations",
+                    unique_id_key="id"
+                )
+                await file_manager.save_location_list_to_csv(
+                    location_list_stream, location_list_metadata
+                )
 
-        if file_created:
-            logging.info("All files written successfully. Proceeding to manifest creation.")
-            manifest_manager.create_manifests()
-            state_manager.save_state(
-                config.sync_options.sync_time_value,
-                config.sync_options.sync_time_unit.value,
-                config.sync_options.end_datetime
-            )
+                if api_client.list_unique_ids:
+                    location_details_metadata = file_manager.get_file_metadata("location_details")
+                    location_details_stream = api_client.fetch_object_detail_data("locations")
+                    await file_manager.save_location_details_to_csv(
+                        location_details_stream, location_details_metadata
+                    )
+
+                location_lookup_metadata = file_manager.get_file_metadata("location_lookups")
+                await file_manager.save_lookup_data_to_csv(
+                    location_lookup_data,
+                    location_lookup_metadata
+                )
+
+        asyncio.run(process())
+
+        logging.info("Data download completed. Proceeding to manifest creation...")
+        manifest_manager.create_manifests()
+        logging.info("Saving component state...")
+        state_manager.save_state(
+            config.sync_options.sync_time_value,
+            config.sync_options.sync_time_unit.value,
+            config.sync_options.end_datetime
+        )
 
         logging.info("Data processing completed!")
 

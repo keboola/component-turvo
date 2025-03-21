@@ -6,7 +6,7 @@ from typing import Dict, AsyncGenerator, Set
 import httpx
 
 from configuration import Configuration
-from utils import generate_auth_request, flatten_shipment_list
+from utils import generate_auth_request
 
 
 class TurvoApiClient:
@@ -16,7 +16,7 @@ class TurvoApiClient:
 
     def __init__(self, config: Configuration):
         self.config = config
-        self.shipment_ids: Set[int] = set()
+        self.list_unique_ids: Set[int] = set()
         self.api_base_url = self.config.authentication.api_base_url
         self.max_retries = self.config.sync_options.max_retries
         self.auth_lock = asyncio.Lock()
@@ -61,14 +61,23 @@ class TurvoApiClient:
 
             raise Exception("Maximum number of retries reached. Unable to authenticate.")
 
-    async def fetch_shipments(self) -> AsyncGenerator[Dict, None]:
+    async def fetch_filtered_list_data(
+            self,
+            resource: str,
+            element_key: str,
+            unique_id_key: str
+    ) -> AsyncGenerator[Dict, None]:
         """
-        Generator that fetches shipments using `updated[gte]` while collecting unique shipment IDs.
+        Generic generator to fetch filtered list data from a Turvo endpoint.
+
+        :param resource: The endpoint resource, e.g., "shipments"
+        :param element_key: The key inside `details` that contains the list of items
+        :param unique_id_key: The key inside each element used to collect unique IDs
         """
         start = 0
         page_size = 24
         start_datetime = self.config.sync_options.start_datetime
-        self.shipment_ids.clear()
+        self.list_unique_ids.clear()
 
         headers = {
             "Authorization": f"Bearer {await self.authenticate()}",
@@ -76,12 +85,12 @@ class TurvoApiClient:
             "x-api-key": self.config.authentication.xApiKey,
         }
 
-        logging.info(f"Fetching shipments updated since {start_datetime}...")
+        logging.info(f"Fetching {resource} updated since {start_datetime}...")
 
         async with httpx.AsyncClient(verify=True) as client:
             while True:
-                url = f"{self.api_base_url}/shipments/list?updated[gte]={start_datetime}&start={start}"
-                logging.info(f"Fetching shipments (start={start}): {url}")
+                url = f"{self.api_base_url}/{resource}/list?updated[gte]={start_datetime}&start={start}"
+                logging.info(f"Fetching {resource} (start={start}): {url}")
 
                 try:
                     response = await client.get(url, headers=headers)
@@ -95,17 +104,16 @@ class TurvoApiClient:
 
                     pagination = data["details"].get("pagination", {})
                     if not pagination.get("moreAvailable", False):
-                        logging.info("No more shipments available, stopping pagination.")
+                        logging.info("No more results available, stopping pagination.")
                         break
 
-                    shipments = data["details"].get("shipments", [])
-                    for shipment in shipments:
-                        shipment_id = shipment.get("id")
-                        if shipment_id:
-                            self.shipment_ids.add(shipment_id)
+                    elements = data["details"].get(element_key, [])
+                    for element in elements:
+                        element_id = element.get(unique_id_key)
+                        if element_id:
+                            self.list_unique_ids.add(element_id)
 
-                        for flattened_shipment in flatten_shipment_list(shipment):
-                            yield flattened_shipment
+                        yield element
 
                     start += page_size
 
@@ -120,11 +128,13 @@ class TurvoApiClient:
 
                 await asyncio.sleep(self.request_delay)
 
-        logging.info(f"Collected {len(self.shipment_ids)} unique shipment IDs.")
+        logging.info(f"Collected {len(self.list_unique_ids)} unique {resource} IDs.")
 
-    async def fetch_shipment_details(self) -> AsyncGenerator[Dict, None]:
+    async def fetch_object_detail_data(self, object_name: str) -> AsyncGenerator[Dict, None]:
         """
-        Generator that fetches detailed shipment data for each shipment ID.
+        Generator that fetches detailed data for each object ID in self.list_unique_ids.
+
+        :param object_name: API path like "shipments" or "orders"
         """
         headers = {
             "Authorization": f"Bearer {await self.authenticate()}",
@@ -133,17 +143,16 @@ class TurvoApiClient:
         }
 
         async with httpx.AsyncClient(verify=True) as client:
-            for shipment_id in self.shipment_ids:
-                url = f"{self.api_base_url}/shipments/{shipment_id}"
-                logging.info(f"Fetching shipment details for {shipment_id}")
+            for object_id in self.list_unique_ids:
+                url = f"{self.api_base_url}/{object_name}/{object_id}"
+                logging.info(f"Fetching {object_name} details for {object_id}")
 
                 try:
                     response = await client.get(url, headers=headers)
                     response.raise_for_status()
-                    data = response.json()
-                    yield data
+                    yield response.json()
 
                 except httpx.HTTPStatusError as e:
-                    logging.error(f"Failed to fetch shipment {shipment_id}: {e}")
+                    logging.error(f"Failed to fetch {object_name} {object_id}: {e}")
 
                 await asyncio.sleep(self.request_delay)

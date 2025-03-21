@@ -52,39 +52,45 @@
             "type": "object",
             "title": "Synchronization Options",
             "propertyOrder": 2,
-            "required": ["endpoint", "sync_time_value", "sync_time_unit"],
+            "required": ["endpoints", "sync_time_value", "sync_time_unit"],
             "properties": {
-                "endpoint": {
+            "endpoints": {
+                "type": "array",
+                "title": "Endpoints",
+                "items": {
                     "type": "string",
-                    "title": "Endpoint",
-                    "enum": ["shipments"],
-                    "default": "shipments",
-                    "propertyOrder": 1,
-                    "description": "Endpoint for data extraction. Currently, only 'shipments' is supported."
+                    "enum": [
+                        "shipments",
+                        "locations"
+                    ]
                 },
-                "sync_time_value": {
-                    "type": "integer",
-                    "title": "Sync Time Value",
-                    "minimum": 1,
-                    "maximum": 1000,
-                    "default": 1,
-                    "propertyOrder": 2,
-                    "description": "Time value for downloading the data (e.g., 1 hour, 2 days)."
-                },
-                "sync_time_unit": {
-                    "type": "string",
-                    "title": "Sync Time Unit",
-                    "enum": ["hour", "day", "week", "month", "year"],
-                    "default": "hour",
-                    "propertyOrder": 3,
-                    "description": "Time unit for data extraction."
-                }
+                "default": ["shipments"],
+                "propertyOrder": 1,
+                "description": "List of endpoints for data extraction. Currently, only 'shipments' is supported."
+            },
+            "sync_time_value": {
+                "type": "integer",
+                "title": "Sync Time Value",
+                "minimum": 1,
+                "maximum": 1000,
+                "default": 1,
+                "propertyOrder": 2,
+                "description": "Time value for downloading the data (e.g., 1 hour, 2 days)."
+            },
+            "sync_time_unit": {
+                "type": "string",
+                "title": "Sync Time Unit",
+                "enum": ["hour", "day", "week", "month", "year"],
+                "default": "hour",
+                "propertyOrder": 3,
+                "description": "Time unit for data extraction."
             }
-        },
-        "debug": {
-            "type": "boolean",
-            "title": "Enable Debug Mode",
-            "default": false,
+        }
+    },
+    "debug": {
+        "type": "boolean",
+        "title": "Enable Debug Mode",
+        "default": false,
             "propertyOrder": 3
         }
     }
