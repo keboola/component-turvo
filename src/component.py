@@ -8,7 +8,7 @@ import logging
 from keboola.component.base import ComponentBase
 from keboola.component.exceptions import UserException
 
-from configuration import Configuration, EndpointEnum
+from configuration import Configuration
 from api_client import TurvoApiClient
 from file_manager import FileManager
 from manifest_manager import ManifestManager
@@ -43,52 +43,75 @@ class Component(ComponentBase):
             """
             Downloads data based on selected endpoint.
             """
-            if EndpointEnum.shipments in config.sync_options.endpoints:
-                logging.info("Downloading shipments data...")
 
+            if config.endpoints.shipment_filters:
+                logging.info("Downloading shipment filters...")
                 shipment_list_metadata = file_manager.get_file_metadata("shipment_filters")
                 shipment_list_stream = api_client.fetch_filtered_list_data(
                     resource="shipments",
                     element_key="shipments",
                     unique_id_key="id"
                 )
-                await file_manager.save_shipment_list_to_csv(
-                    shipment_list_stream, shipment_list_metadata
+                await file_manager.save_shipment_list_to_csv(shipment_list_stream, shipment_list_metadata)
+
+            shipment_ids = []
+
+            if config.endpoints.shipment_details_for_filters:
+                shipment_ids.extend(api_client.list_unique_ids)
+
+            if config.endpoints.shipment_details_custom:
+                shipment_ids.extend(config.custom_shipment_details_ids.parsed_ids)
+
+            shipment_ids = list(set(shipment_ids))
+
+            if shipment_ids:
+                logging.info(f"Fetching shipment details for {len(shipment_ids)} shipments...")
+                api_client.override_ids(shipment_ids)
+                shipment_details_metadata = file_manager.get_file_metadata("shipment_details")
+                shipment_details_stream = api_client.fetch_object_detail_data("shipments")
+                await file_manager.save_shipment_details_to_csv(
+                    shipment_details_stream, shipment_details_metadata
                 )
 
-                if api_client.list_unique_ids:
-                    shipment_details_metadata = file_manager.get_file_metadata("shipment_details")
-                    shipment_details_stream = api_client.fetch_object_detail_data("shipments")
-                    await file_manager.save_shipment_details_to_csv(
-                        shipment_details_stream, shipment_details_metadata
-                    )
-
+            if config.endpoints.shipment_lookups:
+                logging.info("Downloading shipment lookup data...")
                 shipment_lookup_metadata = file_manager.get_file_metadata("shipment_lookups")
                 await file_manager.save_lookup_data_to_csv(
                     shipment_lookup_data,
                     shipment_lookup_metadata
                 )
 
-            if EndpointEnum.locations in config.sync_options.endpoints:
-                logging.info("Downloading locations data...")
-
+            if config.endpoints.location_filters:
+                logging.info("Downloading location filters...")
                 location_list_metadata = file_manager.get_file_metadata("location_filters")
                 location_list_stream = api_client.fetch_filtered_list_data(
                     resource="locations",
                     element_key="locations",
                     unique_id_key="id"
                 )
-                await file_manager.save_location_list_to_csv(
-                    location_list_stream, location_list_metadata
+                await file_manager.save_location_list_to_csv(location_list_stream, location_list_metadata)
+
+            location_ids = []
+
+            if config.endpoints.location_details_for_filters:
+                location_ids.extend(api_client.list_unique_ids)
+
+            if config.endpoints.location_details_custom:
+                location_ids.extend(config.custom_location_details_ids.parsed_ids)
+
+            location_ids = list(set(location_ids))
+
+            if location_ids:
+                logging.info(f"Fetching location details for {len(location_ids)} locations...")
+                api_client.override_ids(location_ids)
+                location_details_metadata = file_manager.get_file_metadata("location_details")
+                location_details_stream = api_client.fetch_object_detail_data("locations")
+                await file_manager.save_location_details_to_csv(
+                    location_details_stream, location_details_metadata
                 )
 
-                if api_client.list_unique_ids:
-                    location_details_metadata = file_manager.get_file_metadata("location_details")
-                    location_details_stream = api_client.fetch_object_detail_data("locations")
-                    await file_manager.save_location_details_to_csv(
-                        location_details_stream, location_details_metadata
-                    )
-
+            if config.endpoints.location_lookups:
+                logging.info("Downloading location lookup data...")
                 location_lookup_metadata = file_manager.get_file_metadata("location_lookups")
                 await file_manager.save_lookup_data_to_csv(
                     location_lookup_data,
@@ -100,12 +123,7 @@ class Component(ComponentBase):
         logging.info("Data download completed. Proceeding to manifest creation...")
         manifest_manager.create_manifests()
         logging.info("Saving component state...")
-        state_manager.save_state(
-            config.sync_options.sync_time_value,
-            config.sync_options.sync_time_unit.value,
-            config.sync_options.end_datetime
-        )
-
+        state_manager.save_run_state(config.load_options.date_from, config.resolved_date_from)
         logging.info("Data processing completed!")
 
 

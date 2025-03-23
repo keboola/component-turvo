@@ -18,7 +18,7 @@ class TurvoApiClient:
         self.config = config
         self.list_unique_ids: Set[int] = set()
         self.api_base_url = self.config.authentication.api_base_url
-        self.max_retries = self.config.sync_options.max_retries
+        self.max_retries = 5
         self.auth_lock = asyncio.Lock()
         self.auth_key = None
         self.expires_at = 0
@@ -61,6 +61,9 @@ class TurvoApiClient:
 
             raise Exception("Maximum number of retries reached. Unable to authenticate.")
 
+    def override_ids(self, ids: list[int]):
+        self.list_unique_ids = ids
+
     async def fetch_filtered_list_data(
             self,
             resource: str,
@@ -76,7 +79,7 @@ class TurvoApiClient:
         """
         start = 0
         page_size = 24
-        start_datetime = self.config.sync_options.start_datetime
+        start_datetime = self.config.resolved_date_from
         self.list_unique_ids.clear()
 
         headers = {

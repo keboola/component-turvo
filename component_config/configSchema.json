@@ -1,97 +1,177 @@
 {
-    "type": "object",
-    "title": "Turvo Component Configuration",
-    "required": ["authentication", "sync_options", "debug"],
-    "properties": {
-        "authentication": {
-            "type": "object",
-            "title": "Authentication Settings",
-            "propertyOrder": 1,
-            "required": ["username", "#password", "clientId", "#clientSecret", "#xApiKey", "environment"],
-            "properties": {
-                "username": {
-                    "type": "string",
-                    "title": "Username",
-                    "default": "",
-                    "propertyOrder": 1
-                },
-                "#password": {
-                    "type": "string",
-                    "title": "Password",
-                    "format": "password",
-                    "propertyOrder": 2
-                },
-                "clientId": {
-                    "type": "string",
-                    "title": "Client ID",
-                    "propertyOrder": 3
-                },
-                "#clientSecret": {
-                    "type": "string",
-                    "title": "Client Secret",
-                    "format": "password",
-                    "propertyOrder": 4
-                },
-                "#xApiKey": {
-                    "type": "string",
-                    "title": "API Key",
-                    "format": "password",
-                    "propertyOrder": 5
-                },
-                "environment": {
-                    "type": "string",
-                    "title": "API Environment",
-                    "enum": ["dev", "prod"],
-                    "default": "prod",
-                    "propertyOrder": 6,
-                    "description": "Choose 'dev' for testing or 'prod' for production."
-                }
-            }
+  "type": "object",
+  "title": "Turvo Component Configuration",
+  "required": ["authentication", "endpoints", "debug"],
+  "properties": {
+    "authentication": {
+      "type": "object",
+      "title": "Authentication Settings",
+      "options": {
+        "section": "Authentication",
+        "collapsed": false
+      },
+      "propertyOrder": 1,
+      "required": ["username", "#password", "clientId", "#clientSecret", "#xApiKey", "environment"],
+      "properties": {
+        "username": {
+          "type": "string",
+          "title": "Username",
+          "default": "",
+          "propertyOrder": 1
         },
-        "sync_options": {
-            "type": "object",
-            "title": "Synchronization Options",
-            "propertyOrder": 2,
-            "required": ["endpoints", "sync_time_value", "sync_time_unit"],
-            "properties": {
-            "endpoints": {
-                "type": "array",
-                "title": "Endpoints",
-                "items": {
-                    "type": "string",
-                    "enum": [
-                        "shipments",
-                        "locations"
-                    ]
-                },
-                "default": ["shipments"],
-                "propertyOrder": 1,
-                "description": "List of endpoints for data extraction. Currently, only 'shipments' is supported."
-            },
-            "sync_time_value": {
-                "type": "integer",
-                "title": "Sync Time Value",
-                "minimum": 1,
-                "maximum": 1000,
-                "default": 1,
-                "propertyOrder": 2,
-                "description": "Time value for downloading the data (e.g., 1 hour, 2 days)."
-            },
-            "sync_time_unit": {
-                "type": "string",
-                "title": "Sync Time Unit",
-                "enum": ["hour", "day", "week", "month", "year"],
-                "default": "hour",
-                "propertyOrder": 3,
-                "description": "Time unit for data extraction."
-            }
+        "#password": {
+          "type": "string",
+          "title": "Password",
+          "format": "password",
+          "propertyOrder": 2
+        },
+        "clientId": {
+          "type": "string",
+          "title": "Client ID",
+          "propertyOrder": 3
+        },
+        "#clientSecret": {
+          "type": "string",
+          "title": "Client Secret",
+          "format": "password",
+          "propertyOrder": 4
+        },
+        "#xApiKey": {
+          "type": "string",
+          "title": "API Key",
+          "format": "password",
+          "propertyOrder": 5
+        },
+        "environment": {
+          "type": "string",
+          "title": "API Environment",
+          "enum": ["dev", "prod"],
+          "default": "prod",
+          "propertyOrder": 6,
+          "description": "Choose 'dev' for testing or 'prod' for production."
         }
+      }
+    },
+    "endpoints": {
+      "type": "object",
+      "required": [
+        "shipment_filters",
+        "shipment_details_for_filters",
+        "shipment_details_custom",
+        "shipment_lookups",
+        "location_filters",
+        "location_details_for_filters",
+        "location_details_custom",
+        "location_lookups"
+      ],
+      "title": "Endpoints",
+      "options": {
+        "section": "Endpoints",
+        "collapsed": false
+      },
+      "propertyOrder": 2,
+      "properties": {
+        "shipment_filters": {
+          "type": "boolean",
+          "title": "Shipment Filters",
+          "format": "checkbox",
+          "propertyOrder": 1
+        },
+        "shipment_details_for_filters": {
+          "type": "boolean",
+          "title": "Shipment Details for Downloaded Filters",
+          "format": "checkbox",
+          "propertyOrder": 2,
+          "options": {
+            "dependencies": {
+              "endpoints.shipment_filters": true
+            }
+          }
+        },
+        "shipment_details_custom": {
+          "type": "boolean",
+          "title": "Shipment Details for Custom IDs",
+          "format": "checkbox",
+          "propertyOrder": 3
+        },
+        "shipment_lookups": {
+          "type": "boolean",
+          "title": "Shipment Lookup Data",
+          "format": "checkbox",
+          "propertyOrder": 4
+        },
+        "location_filters": {
+          "type": "boolean",
+          "title": "Location Filters",
+          "format": "checkbox",
+          "propertyOrder": 5
+        },
+        "location_details_for_filters": {
+          "type": "boolean",
+          "title": "Location Details for Downloaded Filters",
+          "format": "checkbox",
+          "propertyOrder": 6,
+          "options": {
+            "dependencies": {
+              "endpoints.location_filters": true
+            }
+          }
+        },
+        "location_details_custom": {
+          "type": "boolean",
+          "title": "Location Details for Custom IDs",
+          "format": "checkbox",
+          "propertyOrder": 7
+        },
+        "location_lookups": {
+          "type": "boolean",
+          "title": "Location Lookup Data",
+          "format": "checkbox",
+          "propertyOrder": 8
+        }
+      }
+    },
+    "custom_shipment_details_ids": {
+      "type": "string",
+      "title": "Custom Shipment Details IDs",
+      "propertyOrder": 3,
+      "options": {
+        "dependencies": {
+          "endpoints.shipment_details_custom": true
+        }
+      },
+      "description": "Required when endpoint [Shipment Details for Custom IDs] is selected. Please enter your values with comma delimiter."
+    },
+    "custom_location_details_ids": {
+      "type": "string",
+      "title": "Location Details for Custom IDs",
+      "propertyOrder": 4,
+      "options": {
+        "dependencies": {
+          "endpoints.location_details_custom": true
+        }
+      },
+      "description": "Required when endpoint [Location Details for Custom IDs] is selected. Please enter your values with comma delimiter."
+    },
+    "load_options": {
+      "type": "object",
+      "title": "Load Options",
+      "propertyOrder": 5,
+      "properties": {
+        "date_from": {
+          "type": "string",
+          "title": "Date From",
+          "default": "1 hour",
+          "description": "Date from which data is downloaded. Either date in YYYY-MM-DD format or dateparser string i.e. 5 days ago, 1 month ago, yesterday, etc. You can also set this as last run, which will fetch data from the last run of the component.",
+          "propertyOrder": 1
+        }
+      }
     },
     "debug": {
-        "type": "boolean",
-        "title": "Enable Debug Mode",
-        "default": false,
-            "propertyOrder": 3
-        }
+      "type": "boolean",
+      "title": "Enable Debug Mode",
+      "default": false,
+      "propertyOrder": 6
     }
+  }
 }

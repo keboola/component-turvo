@@ -1,11 +1,11 @@
+import pytz
 import logging
-from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Optional, List
+from typing import Optional, List, Dict
 
-from dateutil.relativedelta import relativedelta
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 from keboola.component.exceptions import UserException
+from dateparser import parse as parse_natural_date
 
 from state_manager import StateManager
 
@@ -27,14 +27,6 @@ class EndpointEnum(str, Enum):
     locations = "locations"
     carriers = "carriers"
     orders = "orders"
-
-
-class TimeUnit(Enum):
-    HOUR = "hour"
-    DAY = "day"
-    WEEK = "week"
-    MONTH = "month"
-    YEAR = "year"
 
 
 class Authentication(BaseModel):
@@ -60,95 +52,109 @@ class Authentication(BaseModel):
         return ENVIRONMENT_URLS[self.environment]
 
 
-class SyncOptions(BaseModel):
-    endpoints: List[EndpointEnum] = Field(
-        default=[EndpointEnum.shipments],
-        description="List of endpoints for data extraction"
-    )
+class Endpoints(BaseModel):
+    shipment_filters: bool = Field(
+        default=False,
+        description="Shipments filters"
+    ),
+    shipment_details_for_filters: bool = Field(
+        default=False,
+        description="Shipment details for downloaded filters"
+    ),
+    shipment_details_custom: bool = Field(
+        default=False,
+        description="Shipment details for custom IDs"
+    ),
+    shipment_lookups: bool = Field(
+        default=False,
+        description="Shipment lookups"
+    ),
+    location_filters: bool = Field(
+        default=False,
+        description="Location filters"
+    ),
+    location_details_for_filters: bool = Field(
+        default=False,
+        description="Location details for downloaded filters"
+    ),
+    location_details_custom: bool = Field(
+        default=False,
+        description="Location details for custom IDs"
+    ),
+    location_lookups: bool = Field(
+        default=False,
+        description="Location lookups"
+    ),
 
-    sync_time_value: int = Field(
-        default=1,
-        ge=1,
-        le=1000,
-        description="Time value for downloading the data"
-    )
-
-    sync_time_unit: TimeUnit = Field(
-        default=TimeUnit.HOUR,
-        description="Time unit for downloading the data"
-    )
-
-    max_retries: int = Field(
-        default=5,
-        ge=3,
-        le=5,
-        description="Maximum amount of retries to allow fetching data."
-    )
-
-    start_datetime: Optional[str] = Field(default=None)
-    end_datetime: Optional[str] = Field(default=None)
-
-    @field_validator("endpoints")
-    def must_not_be_empty(cls, values: List[EndpointEnum]) -> List[EndpointEnum]:
-        """Ensures that at least one endpoint is selected."""
-        if not values:
-            raise ValueError("At least one endpoint must be specified.")
+    @model_validator(mode="before")
+    @classmethod
+    def correct_invalid_combinations(cls, values: Dict) -> Dict:
+        if not values.get("shipment_filters"):
+            values["shipment_details_for_filters"] = False
+        if not values.get("location_filters"):
+            values["location_details_for_filters"] = False
         return values
 
-    @field_validator("endpoints")
-    def validate_endpoints(cls, values: list[str]) -> list[str]:
-        """
-        Ensures that all provided endpoints exist in EndpointEnum.
-        """
-        valid_endpoints = {e.value for e in EndpointEnum}
-        invalid_endpoints = [e for e in values if e not in valid_endpoints]
+    @property
+    def as_dict(self) -> Dict[str, bool]:
+        return self.model_dump()
 
-        if invalid_endpoints:
-            raise ValueError(
-                f"Invalid endpoints specified: {invalid_endpoints}. "
-                f"Allowed values: {list(valid_endpoints)}"
-            )
-        return values
 
-    def calculate_start_date(self, now: datetime) -> str:
-        """Calculate the start date based on the time value and unit."""
-        unit_map = {
-            TimeUnit.HOUR: timedelta(hours=self.sync_time_value),
-            TimeUnit.DAY: timedelta(days=self.sync_time_value),
-            TimeUnit.WEEK: timedelta(weeks=self.sync_time_value),
-            TimeUnit.MONTH: relativedelta(months=self.sync_time_value),
-            TimeUnit.YEAR: relativedelta(years=self.sync_time_value),
-        }
-        start_date = now - unit_map[self.sync_time_unit]
-        return start_date.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+class LoadOptions(BaseModel):
+    date_from: str = Field(default="1 hour")
 
-    def initialize_sync_window(self, state_manager: StateManager):
-        """
-        Initializes the sync window by setting `start_datetime` and `end_datetime`.
-        Uses `state_manager` to retrieve the last known sync or generate a new one.
-        """
-        now = datetime.now(timezone.utc)
-        self.end_datetime = now.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    def resolved_date_from(self, state: Dict[str, str], default: str = "1 hour") -> str:
+        date_str = (self.date_from or default).strip().lower()
 
-        self.start_datetime = state_manager.get_last_sync_date(
-            sync_time_value=self.sync_time_value,
-            sync_time_unit=self.sync_time_unit.value,
-            default_start_date=self.calculate_start_date(now),
-        )
+        if date_str in {"last", "lastrun", "last run", "last_run"}:
+            last_run = state.get("last_successful_run")
+            if not last_run:
+                raise UserException("No previous run timestamp found in state, but 'last run' was selected.")
+            return last_run
 
-        logging.info(f"Fetching data from {self.start_datetime} to {self.end_datetime}")
+        date_obj = parse_natural_date(date_str, settings={"TIMEZONE": "UTC"})
+        if date_obj is None:
+            raise UserException(f"Invalid date string: '{date_str}'")
+
+        date_obj = date_obj.replace(tzinfo=pytz.UTC)
+        return date_obj.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 class Configuration(BaseModel):
     authentication: Authentication
-    sync_options: SyncOptions
+    endpoints: Endpoints
+    load_options: LoadOptions
+    custom_shipment_details_ids: str = Field(default="")
+    custom_location_details_ids: str = Field(default="")
     debug: bool = False
+
+    resolved_date_from: Optional[str] = None
+
+    @property
+    def parsed_custom_shipment_ids(self) -> List[int]:
+        if not self.custom_shipment_details_ids.strip():
+            return []
+        parts = self.custom_shipment_details_ids.split(",")
+        if not all(part.strip().isdigit() for part in parts):
+            raise UserException("Custom Shipment IDs must be a comma-separated list of integers.")
+        return [int(p.strip()) for p in parts if p.strip()]
+
+    @property
+    def parsed_custom_location_ids(self) -> List[int]:
+        if not self.custom_location_details_ids.strip():
+            return []
+        parts = self.custom_location_details_ids.split(",")
+        if not all(part.strip().isdigit() for part in parts):
+            raise UserException("Custom Location IDs must be a comma-separated list of integers.")
+        return [int(p.strip()) for p in parts if p.strip()]
 
     def __init__(self, state_manager: StateManager, **data):
         try:
             super().__init__(**data)
-            self.sync_options.initialize_sync_window(state_manager)
-            logging.info(f"Using download date: {self.sync_options.start_datetime}")
+            self.resolved_date_from = self.load_options.resolved_date_from(
+                state=state_manager.load_state()
+            )
+            logging.info(f"Resolved date_from: {self.resolved_date_from}")
         except ValidationError as e:
             error_messages = [f"{err['loc'][0]}: {err['msg']}" for err in e.errors()]
             raise UserException(f"Validation Error: {', '.join(error_messages)}")
