@@ -21,14 +21,6 @@ ENVIRONMENT_URLS = {
 }
 
 
-class EndpointEnum(str, Enum):
-    shipments = "shipments"
-    customers = "customers"
-    locations = "locations"
-    carriers = "carriers"
-    orders = "orders"
-
-
 class Authentication(BaseModel):
     username: str
     clientId: str
@@ -53,46 +45,42 @@ class Authentication(BaseModel):
 
 
 class Endpoints(BaseModel):
-    shipment_filters: bool = Field(
+    shipments: bool = Field(
         default=False,
-        description="Shipments filters"
+        description="Shipments"
     ),
-    shipment_details_for_filters: bool = Field(
+    shipment_details: bool = Field(
         default=False,
-        description="Shipment details for downloaded filters"
+        description="Shipments and Shipment Details"
     ),
-    shipment_details_custom: bool = Field(
+    shipment_details_custom_ids: bool = Field(
         default=False,
-        description="Shipment details for custom IDs"
+        description="Shipment Details for specific shipment IDs"
     ),
-    shipment_lookups: bool = Field(
+    locations: bool = Field(
         default=False,
-        description="Shipment lookups"
+        description="Locations"
     ),
-    location_filters: bool = Field(
+    location_details: bool = Field(
         default=False,
-        description="Location filters"
+        description="Locations and Location Details"
     ),
-    location_details_for_filters: bool = Field(
+    location_details_custom_ids: bool = Field(
         default=False,
-        description="Location details for downloaded filters"
+        description="Location Details for specific location IDs"
     ),
-    location_details_custom: bool = Field(
+    lookups: bool = Field(
         default=False,
-        description="Location details for custom IDs"
-    ),
-    location_lookups: bool = Field(
-        default=False,
-        description="Location lookups"
+        description="Add Lookup Data"
     ),
 
     @model_validator(mode="before")
     @classmethod
     def correct_invalid_combinations(cls, values: Dict) -> Dict:
-        if not values.get("shipment_filters"):
-            values["shipment_details_for_filters"] = False
-        if not values.get("location_filters"):
-            values["location_details_for_filters"] = False
+        if not values.get("shipments"):
+            values["shipment_details"] = False
+        if not values.get("locations"):
+            values["location_details"] = False
         return values
 
     @property

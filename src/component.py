@@ -44,9 +44,9 @@ class Component(ComponentBase):
             Downloads data based on selected endpoint.
             """
 
-            if config.endpoints.shipment_filters:
-                logging.info("Downloading shipment filters...")
-                shipment_list_metadata = file_manager.get_file_metadata("shipment_filters")
+            if config.endpoints.shipments:
+                logging.info("Downloading shipments...")
+                shipment_list_metadata = file_manager.get_file_metadata("shipments")
                 shipment_list_stream = api_client.fetch_filtered_list_data(
                     resource="shipments",
                     element_key="shipments",
@@ -56,15 +56,17 @@ class Component(ComponentBase):
 
             shipment_ids = []
 
-            if config.endpoints.shipment_details_for_filters:
+            if config.endpoints.shipment_details:
                 shipment_ids.extend(api_client.list_unique_ids)
 
-            if config.endpoints.shipment_details_custom:
-                shipment_ids.extend(config.custom_shipment_details_ids.parsed_ids)
+            if config.endpoints.shipment_details_custom_ids:
+                shipment_ids.extend(config.parsed_custom_shipment_ids)
 
             shipment_ids = list(set(shipment_ids))
 
-            if shipment_ids:
+            if not shipment_ids:
+                logging.info("No shipment IDs found to fetch details.")
+            else:
                 logging.info(f"Fetching shipment details for {len(shipment_ids)} shipments...")
                 api_client.override_ids(shipment_ids)
                 shipment_details_metadata = file_manager.get_file_metadata("shipment_details")
@@ -73,17 +75,9 @@ class Component(ComponentBase):
                     shipment_details_stream, shipment_details_metadata
                 )
 
-            if config.endpoints.shipment_lookups:
-                logging.info("Downloading shipment lookup data...")
-                shipment_lookup_metadata = file_manager.get_file_metadata("shipment_lookups")
-                await file_manager.save_lookup_data_to_csv(
-                    shipment_lookup_data,
-                    shipment_lookup_metadata
-                )
-
-            if config.endpoints.location_filters:
-                logging.info("Downloading location filters...")
-                location_list_metadata = file_manager.get_file_metadata("location_filters")
+            if config.endpoints.locations:
+                logging.info("Downloading locations...")
+                location_list_metadata = file_manager.get_file_metadata("locations")
                 location_list_stream = api_client.fetch_filtered_list_data(
                     resource="locations",
                     element_key="locations",
@@ -93,15 +87,17 @@ class Component(ComponentBase):
 
             location_ids = []
 
-            if config.endpoints.location_details_for_filters:
+            if config.endpoints.location_details:
                 location_ids.extend(api_client.list_unique_ids)
 
-            if config.endpoints.location_details_custom:
-                location_ids.extend(config.custom_location_details_ids.parsed_ids)
+            if config.endpoints.location_details_custom_ids:
+                location_ids.extend(config.parsed_custom_location_ids)
 
             location_ids = list(set(location_ids))
 
-            if location_ids:
+            if not location_ids:
+                logging.info("No location IDs found to fetch details.")
+            else:
                 logging.info(f"Fetching location details for {len(location_ids)} locations...")
                 api_client.override_ids(location_ids)
                 location_details_metadata = file_manager.get_file_metadata("location_details")
@@ -110,7 +106,14 @@ class Component(ComponentBase):
                     location_details_stream, location_details_metadata
                 )
 
-            if config.endpoints.location_lookups:
+            if config.endpoints.lookups:
+                logging.info("Downloading shipment lookup data...")
+                shipment_lookup_metadata = file_manager.get_file_metadata("shipment_lookups")
+                await file_manager.save_lookup_data_to_csv(
+                    shipment_lookup_data,
+                    shipment_lookup_metadata
+                )
+
                 logging.info("Downloading location lookup data...")
                 location_lookup_metadata = file_manager.get_file_metadata("location_lookups")
                 await file_manager.save_lookup_data_to_csv(

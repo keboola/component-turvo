@@ -55,14 +55,13 @@
     "endpoints": {
       "type": "object",
       "required": [
-        "shipment_filters",
-        "shipment_details_for_filters",
-        "shipment_details_custom",
-        "shipment_lookups",
-        "location_filters",
-        "location_details_for_filters",
-        "location_details_custom",
-        "location_lookups"
+        "shipments",
+        "shipment_details",
+        "shipment_details_custom_ids",
+        "locations",
+        "location_details",
+        "location_details_custom_ids",
+        "lookups"
       ],
       "title": "Endpoints",
       "options": {
@@ -71,87 +70,81 @@
       },
       "propertyOrder": 2,
       "properties": {
-        "shipment_filters": {
+        "shipments": {
           "type": "boolean",
-          "title": "Shipment Filters",
+          "title": "Shipments",
           "format": "checkbox",
           "propertyOrder": 1
         },
-        "shipment_details_for_filters": {
+        "shipment_details": {
           "type": "boolean",
-          "title": "Shipment Details for Downloaded Filters",
+          "title": "Shipments and Shipment Details",
           "format": "checkbox",
           "propertyOrder": 2,
           "options": {
             "dependencies": {
-              "endpoints.shipment_filters": true
+              "endpoints.shipments": true
             }
           }
         },
-        "shipment_details_custom": {
+        "shipment_details_custom_ids": {
           "type": "boolean",
-          "title": "Shipment Details for Custom IDs",
+          "title": "Shipment Details for specific shipment IDs",
           "format": "checkbox",
           "propertyOrder": 3
         },
-        "shipment_lookups": {
+        "locations": {
           "type": "boolean",
-          "title": "Shipment Lookup Data",
+          "title": "Locations",
           "format": "checkbox",
           "propertyOrder": 4
         },
-        "location_filters": {
+        "location_details": {
           "type": "boolean",
-          "title": "Location Filters",
+          "title": "Locations and Location Details",
           "format": "checkbox",
-          "propertyOrder": 5
-        },
-        "location_details_for_filters": {
-          "type": "boolean",
-          "title": "Location Details for Downloaded Filters",
-          "format": "checkbox",
-          "propertyOrder": 6,
+          "propertyOrder": 5,
           "options": {
             "dependencies": {
-              "endpoints.location_filters": true
+              "endpoints.locations": true
             }
           }
         },
-        "location_details_custom": {
+        "location_details_custom_ids": {
           "type": "boolean",
-          "title": "Location Details for Custom IDs",
+          "title": "Location Details for specific location IDs",
+          "format": "checkbox",
+          "propertyOrder": 6
+        },
+        "lookups": {
+          "type": "boolean",
+          "title": "Add Lookup Data",
           "format": "checkbox",
           "propertyOrder": 7
-        },
-        "location_lookups": {
-          "type": "boolean",
-          "title": "Location Lookup Data",
-          "format": "checkbox",
-          "propertyOrder": 8
         }
       }
     },
     "custom_shipment_details_ids": {
       "type": "string",
-      "title": "Custom Shipment Details IDs",
+      "title": "Shipment Details for specific shipment IDs",
       "propertyOrder": 3,
       "options": {
         "dependencies": {
-          "endpoints.shipment_details_custom": true
+          "endpoints.shipment_details_custom_ids": true
         }
       },
-      "description": "Required when endpoint [Shipment Details for Custom IDs] is selected. Please enter your values with comma delimiter."
+      "description": "Required when endpoint [Shipment Details for specific shipment IDs] is selected. Please enter your values with comma delimiter."
     },
     "custom_location_details_ids": {
       "type": "string",
-      "title": "Location Details for Custom IDs",
+      "title": "Location Details for specific location IDs",
       "propertyOrder": 4,
       "options": {
         "dependencies": {
-          "endpoints.location_details_custom": true
+          "endpoints.location_details_custom_ids": true
         }
       },
-      "description": "Required when endpoint [Location Details for Custom IDs] is selected. Please enter your values with comma delimiter."
+      "description": "Required when endpoint [Location Details for specific location IDs] is selected. Please enter your values with comma delimiter."
     },
     "load_options": {
       "type": "object",
@@ -162,7 +155,7 @@
           "type": "string",
           "title": "Date From",
           "default": "1 hour",
-          "description": "Date from which data is downloaded. Either date in YYYY-MM-DD format or dateparser string i.e. 5 days ago, 1 month ago, yesterday, etc. You can also set this as last run, which will fetch data from the last run of the component.",
+          "description": "Date from which data is downloaded. Either date in YYYY-MM-DD format or dateparser string i.e. 5 days ago, 1 month ago, yesterday, etc. You can also set this as last run (`last run`), which will fetch data from the last run of the component.",
           "propertyOrder": 1
         }
       }
