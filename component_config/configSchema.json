@@ -1,0 +1,170 @@
+{
+  "type": "object",
+  "title": "Turvo Component Configuration",
+  "required": ["authentication", "endpoints", "debug"],
+  "properties": {
+    "authentication": {
+      "type": "object",
+      "title": "Authentication Settings",
+      "options": {
+        "section": "Authentication",
+        "collapsed": false
+      },
+      "propertyOrder": 1,
+      "required": ["username", "#password", "clientId", "#clientSecret", "#xApiKey", "environment"],
+      "properties": {
+        "username": {
+          "type": "string",
+          "title": "Username",
+          "default": "",
+          "propertyOrder": 1
+        },
+        "#password": {
+          "type": "string",
+          "title": "Password",
+          "format": "password",
+          "propertyOrder": 2
+        },
+        "clientId": {
+          "type": "string",
+          "title": "Client ID",
+          "propertyOrder": 3
+        },
+        "#clientSecret": {
+          "type": "string",
+          "title": "Client Secret",
+          "format": "password",
+          "propertyOrder": 4
+        },
+        "#xApiKey": {
+          "type": "string",
+          "title": "API Key",
+          "format": "password",
+          "propertyOrder": 5
+        },
+        "environment": {
+          "type": "string",
+          "title": "API Environment",
+          "enum": ["dev", "prod"],
+          "default": "prod",
+          "propertyOrder": 6,
+          "description": "Choose 'dev' for testing or 'prod' for production."
+        }
+      }
+    },
+    "endpoints": {
+      "type": "object",
+      "required": [
+        "shipments",
+        "shipment_details",
+        "shipment_details_custom_ids",
+        "locations",
+        "location_details",
+        "location_details_custom_ids",
+        "lookups"
+      ],
+      "title": "Endpoints",
+      "options": {
+        "section": "Endpoints",
+        "collapsed": false
+      },
+      "propertyOrder": 2,
+      "properties": {
+        "shipments": {
+          "type": "boolean",
+          "title": "Shipments",
+          "format": "checkbox",
+          "propertyOrder": 1
+        },
+        "shipment_details": {
+          "type": "boolean",
+          "title": "Shipments and Shipment Details",
+          "format": "checkbox",
+          "propertyOrder": 2,
+          "options": {
+            "dependencies": {
+              "endpoints.shipments": true
+            }
+          }
+        },
+        "shipment_details_custom_ids": {
+          "type": "boolean",
+          "title": "Shipment Details for specific shipment IDs",
+          "format": "checkbox",
+          "propertyOrder": 3
+        },
+        "locations": {
+          "type": "boolean",
+          "title": "Locations",
+          "format": "checkbox",
+          "propertyOrder": 4
+        },
+        "location_details": {
+          "type": "boolean",
+          "title": "Locations and Location Details",
+          "format": "checkbox",
+          "propertyOrder": 5,
+          "options": {
+            "dependencies": {
+              "endpoints.locations": true
+            }
+          }
+        },
+        "location_details_custom_ids": {
+          "type": "boolean",
+          "title": "Location Details for specific location IDs",
+          "format": "checkbox",
+          "propertyOrder": 6
+        },
+        "lookups": {
+          "type": "boolean",
+          "title": "Add Lookup Data",
+          "format": "checkbox",
+          "propertyOrder": 7
+        }
+      }
+    },
+    "custom_shipment_details_ids": {
+      "type": "string",
+      "title": "Shipment Details for specific shipment IDs",
+      "propertyOrder": 3,
+      "options": {
+        "dependencies": {
+          "endpoints.shipment_details_custom_ids": true
+        }
+      },
+      "description": "Required when endpoint [Shipment Details for specific shipment IDs] is selected. Please enter your values with comma delimiter."
+    },
+    "custom_location_details_ids": {
+      "type": "string",
+      "title": "Location Details for specific location IDs",
+      "propertyOrder": 4,
+      "options": {
+        "dependencies": {
+          "endpoints.location_details_custom_ids": true
+        }
+      },
+      "description": "Required when endpoint [Location Details for specific location IDs] is selected. Please enter your values with comma delimiter."
+    },
+    "load_options": {
+      "type": "object",
+      "title": "Load Options",
+      "propertyOrder": 5,
+      "properties": {
+        "date_from": {
+          "type": "string",
+          "title": "Date From",
+          "default": "1 hour",
+          "description": "Date from which data is downloaded. Either date in YYYY-MM-DD format or dateparser string i.e. 5 days ago, 1 month ago, yesterday, etc. You can also set this as last run (`last run`), which will fetch data from the last run of the component.",
+          "propertyOrder": 1
+        }
+      }
+    },
+    "debug": {
+      "type": "boolean",
+      "title": "Enable Debug Mode",
+      "default": false,
+      "propertyOrder": 6
+    }
+  }
+}
